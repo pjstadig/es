@@ -8,4 +8,5 @@
 /.nrepl-history
 /es.log
 /pom.xml
+/pom.xml.asc
 *jar
