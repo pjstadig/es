@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# Install:
+#     rm .git/hooks/pre-commit
+#     ln -s bin/pre-commit .git/hooks/pre-commit
+#
+# An example hook script to verify what is about to be committed.
+# Called by git-commit with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+#
+# To enable this hook, rename this file to "pre-commit".
+
+# If you want to allow non-ascii filenames set this variable to true.
+allownonascii=$(git config hooks.allownonascii)
+
+# Cross platform projects tend to avoid non-ascii filenames; prevent
+# them from being added to the repository. We exploit the fact that the
+# printable range starts at the space character and ends with tilde.
+if [ "$allownonascii" != "true" ] &&
+    test "$(git diff --cached --name-only --diff-filter=A -z |
+          LC_ALL=C tr -d '[ -~]\0')"
+then
+    echo "Error: Attempt to add a non-ascii filename."
+    echo
+    echo "This can cause problems if you want to work together"
+    echo "with people on other platforms than you."
+    echo
+    echo "To be portable it is adviseable to rename the file ..."
+    echo
+    echo "If you know what you are doing you can disable this"
+    echo "check using:"
+    echo
+    echo "  git config hooks.allownonascii true"
+    echo
+    exit 1
+fi
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+    against=HEAD
+else
+    # Initial commit: diff against an empty tree object
+    against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+fi
+
+git diff-index --check --cached $against --
+exit_code=$?
+
+## Check for properly formatted clj files:
+
+if [ $exit_code -eq 0 ]; then
+    files=$(git diff --cached --name-only HEAD)
+    for file in $files; do
+        if [ ${file##*.} = "clj" ]; then
+            ${PRE_COMMIT_EMACS:-emacs} --batch \
+                --visit="$file" \
+                -l `pwd`/.elisp/pjstadig-archive.el \
+                -u `whoami` \
+                -f format-buffer >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo "$file is incorrectly formatted"
+                exit_code=1
+            fi
+        fi
+    done
+fi
+
+fgrep -r NOCOMMIT src test
+if [ $? -eq 0 ]; then
+    echo "NOCOMMIT flag found in source"
+    exit_code=1
+fi
+
+if [ $exit_code -ne 0 ]; then
+    echo "Aborting commit."
+fi
+
+exit $exit_code

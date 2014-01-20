@@ -1,0 +1,11 @@
+/checkouts/
+/classes/
+/lib/
+/native/
+/target/
+/.lein-deps-sum
+/.lein-failures
+/.nrepl-history
+/es.log
+/pom.xml
+*jar
