@@ -132,36 +132,55 @@
   [& args]
   (piped-body #(json/encode-stream (apply merge args) %)))
 
-(defn ok? [response]
+(defn ok?
+  "True if the response has \"ok\" true"
+  [response]
   (when (get response "ok")
     response))
 
-(defn valid-index-name? [index-name]
+(defn valid-index-name?
+  "True if index-name is a non-empty string"
+  [index-name]
   (when (and (string? index-name) (pos? (count index-name)))
     index-name))
 
-(defn valid-type? [type]
+(defn valid-type?
+  "True if type is a keyword or non-empty string"
+  [type]
   (when (or (keyword type) (and (string? type) (pos? (count type))))
     type))
 
-(defn valid-id? [id]
+(defn valid-id?
+  "True if id is a keyword, symbol, or non-empty string"
+  [id]
   (when (and id (or (not (string? id)) (pos? (count id))))
     id))
 
-(defn index-list [index-names]
+(defn index-list
+  "If index-names is a single valid index-name, then return a sequence including
+  just that index-name.  If index-names is a sequence of valid-names, then
+  return index-names.  Otherwise throws an exception."
+  [index-names]
   (cond
    (valid-index-name? index-names) [index-names]
    (and (coll? index-names) (every? valid-index-name? index-names)) index-names
    :else (throw (IllegalArgumentException. "Invalid index-names value"))))
 
-(defn index-list-str [index-names]
+(defn index-list-str
+  "A string of comma separated index-names where index-names is filtered through
+  index-list."
+  [index-names]
   (str/join "," (index-list index-names)))
 
-(defn index-exists? [es index-names]
+(defn index-exists?
+  "True if index-names exist, false otherwise"
+  [es index-names]
   {:pre [es]}
   (http-head (url es (index-list-str index-names))))
 
-(defn index-create [es index-name & {:keys [mappings settings]}]
+(defn index-create
+  "Creates index-name given mappings and settings."
+  [es index-name & {:keys [mappings settings]}]
   {:pre [es (valid-index-name? index-name)]}
   (ok? (http-post (url es index-name)
                   (json-body (when mappings
@@ -169,11 +188,15 @@
                              (when settings
                                {:settings settings})))))
 
-(defn index-refresh [es index-names]
+(defn index-refresh
+  "Refreshes index-names."
+  [es index-names]
   {:pre [es]}
   (ok? (http-post (url es (index-list-str index-names) "_refresh"))))
 
-(defn index-delete [es index-names]
+(defn index-delete
+  "Delete index-names."
+  [es index-names]
   {:pre [es]}
   (when (seq index-names)
     (try+
@@ -181,28 +204,38 @@
       (catch [:status 404] _
         true))))
 
-(defn index-settings-get [es index-names]
+(defn index-settings-get
+  "Retrieves the settings for index-names."
+  [es index-names]
   {:pre [es]}
   (http-get (url es (index-list-str index-names) "_settings")))
 
-(defn index-settings-put [es index-names settings]
+(defn index-settings-put
+  "Puts settings for index-names."
+  [es index-names settings]
   {:pre [es]}
   (when (map? settings)
     (ok? (http-put (url es (index-list-str index-names) "_settings")
                    (json-body settings)))))
 
-(defn alias-exists? [es alias-name]
+(defn alias-exists?
+  "True if alias-name exists."
+  [es alias-name]
   {:pre [es (valid-index-name? alias-name)]}
   (http-head (url es "_alias" alias-name)))
 
-(defn alias-get [es alias-name]
+(defn alias-get
+  "Returns list of index names that are a part of alias-name."
+  [es alias-name]
   {:pre [es (valid-index-name? alias-name)]}
   (try+
     (keys (http-get (url es "_alias" alias-name)))
     (catch [:status 404] _
       nil)))
 
-(defn alias-add [es alias-name index-names]
+(defn alias-add
+  "Adds index-names to alias-name."
+  [es alias-name index-names]
   {:pre [es (valid-index-name? alias-name)]}
   (ok? (http-post (url es "_aliases")
                   (json-body {:actions
@@ -210,20 +243,28 @@
                                 {:add {:index index-name
                                        :alias alias-name}})}))))
 
-(defn alias-remove [es alias-name index-names]
+(defn alias-remove
+  "Removes index-names from alias-name."
+  [es alias-name index-names]
   {:pre [es (valid-index-name? alias-name)]}
   (ok? (http-delete (url es (index-list-str index-names) "_alias" alias-name))))
 
-(defn alias-delete [es alias-name]
+(defn alias-delete
+  "Deletes alias-name."
+  [es alias-name]
   (let [index-names (alias-get es alias-name)]
     (every? identity (map (partial alias-remove es alias-name)
                           index-names))))
 
-(defn mapping-get [es index-names]
+(defn mapping-get
+  "Returns mappings for index-names."
+  [es index-names]
   {:pre [es]}
   (http-get (url es (index-list-str index-names) "_mapping")))
 
-(defn mapping-put [es index-name type mapping]
+(defn mapping-put
+  "Puts mapping for index-name and type."
+  [es index-name type mapping]
   {:pre [es (valid-index-name? index-name) (valid-type? type)]}
   (ok? (http-put (url es index-name type "_mapping")
                  (json-body (select-keys mapping [type])))))
@@ -240,7 +281,10 @@
                      (when search-type
                        {:query-params {:search_type search-type}})))))
 
-(defn search-once [es index-names query & {:as options}]
+(defn search-once
+  "Returns a raw results for query in index-names.  Hits can be accessed using
+  search-hits."
+  [es index-names query & {:as options}]
   (search-once* es index-names query options))
 
 (defn search-hits [result]
@@ -260,23 +304,37 @@
                    (cons r (step (+ from (count hits))))))))]
       (step (:from options 0)))))
 
-(defn search [es index-names query & {:as options}]
+(defn search
+  "Returns a lazy sequence of results for query in index-names."
+  [es index-names query & {:as options}]
   (search* es index-names query options))
 
-(defn doc-type [doc]
+(defn doc-type
+  "Gets the type (via :_type or \"_type\") from doc."
+  [doc]
   (if-let [type (or (:_type doc) (get doc "_type"))]
     (name type)))
 
-(defn doc-id [doc]
+(defn doc-id
+  "Gets the id (via :_id or \"_id\") from doc."
+  [doc]
   (or (:_id doc) (get doc "_id")))
 
-(defn search-count [es index-names query & {:as options}]
+(defn search-count
+  "Returns count of the number of hits that match query (without actually
+  returning the hits)."
+  [es index-names query & {:as options}]
   (search* es index-names query (assoc options :search-type :count)))
 
-(defn search-total [result]
+(defn search-total
+  "Returns the total number of hits from result."
+  [result]
   (get-in result ["hits" "total"]))
 
-(defn doc-create [es index-name doc & {:keys [stream?] :as options}]
+(defn doc-create
+  "Creates doc in index-name using the ES create operation.  Will stream data to
+  ES if :stream? is truthy."
+  [es index-name doc & {:keys [stream?] :as options}]
   {:pre [(doc-type doc) (or (nil? (doc-id doc)) (valid-id? (doc-id doc)))]}
   (let [body ((if stream? piped-json-body json-body) doc)
         type (doc-type doc)]
@@ -284,21 +342,34 @@
       (http-put (url es index-name type id "_create") body)
       (http-post (url es index-name type) body))))
 
-(defn doc-index [es index-name doc & {:keys [stream?] :as options}]
+(defn doc-index
+  "Index doc in index-name using the ES index operation (creates it if it
+  doesn't exist, or deletes it and re-creates it, if it does).  Will stream data
+  to ES if the :stream? option is truthy."
+  [es index-name doc & {:keys [stream?] :as options}]
   {:pre [(doc-type doc) (valid-id? (doc-id doc))]}
   (let [body ((if stream? piped-json-body json-body) doc)]
     (http-put (url es index-name (doc-type doc) (doc-id doc)) body)))
 
-(defn op-action [op]
+(defn op-action
+  "Returns the action from op (its first and only key)."
+  [op]
   (first (keys op)))
 
-(defn op-source [op]
+(defn op-source
+  "Returns the source from op."
+  [op]
   (get-in op [(op-action op) :source]))
 
-(defn op-source-meta [op]
+(defn op-source-meta
+  "Returns the meta from the source of the op (the _index, _type, and _id
+  keys)."
+  [op]
   (select-keys (op-source op) [:_index "_index" :_type "_type" :_id "_id"]))
 
 (defn op-prep
+  "Prep op to be sent to ES.  It merges the meta from the source of the op into
+  the op, and merges in the index-name if it is specified."
   ([op]
      (let [action (op-action op)]
        (update-in op [action] #(merge (op-source-meta op)
@@ -310,7 +381,9 @@
                                       (op-source-meta op)
                                       %)))))
 
-(defn op-write! [op wos]
+(defn op-write!
+  "Writes JSON encoded op to writer."
+  [op wos]
   (let [action (op-action op)
         source (op-source op)
         op (update-in op [action] dissoc :source)
@@ -321,6 +394,7 @@
       (.write wos "\n"))))
 
 (defn doc-bulk
+  "Performs bulk index operations."
   ([es ops]
      (http-post (url es "_bulk")
                 (piped-body #(doseq [op ops]
@@ -331,6 +405,7 @@
                                (op-write! (op-prep index-name op) %))))))
 
 (defn doc-bulk-create
+  "Creates a bulk operation to create a document in ES."
   ([source]
      (doc-bulk-create (:_type source) (:_id source) source))
   ([type id source]
@@ -358,6 +433,7 @@
                        {:_index index-name}))}))
 
 (defn doc-bulk-index
+  "Creates a bulk operation to index a document in ES."
   ([source]
      (doc-bulk-index (:_type source) (:_id source) source))
   ([type id source]
@@ -385,6 +461,7 @@
                       {:_index index-name}))}))
 
 (defn doc-bulk-delete
+  "Creates a bulk operation to delete a document in ES."
   ([type id]
      {:pre [(valid-type? type) (valid-id? id)]}
      {:delete {:_type type :_id id}})
