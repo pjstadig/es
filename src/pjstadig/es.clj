@@ -228,57 +228,6 @@
   (ok? (http-put (url es index-name type "_mapping")
                  (json-body (select-keys mapping [type])))))
 
-(defn query-term [field term]
-  {:pre [field term]}
-  {:term {field term}})
-
-(defn query-match [field query]
-  {:pre [field query]}
-  {:match {field query}})
-
-(defn query-match-all []
-  {:match_all {}})
-
-(defn query-bool [& {:keys [must should must-not]}]
-  {:pre [(or (seq must) (seq should) (seq must-not))]}
-  {:bool (merge (when (seq must)
-                  {:must must})
-                (when (seq should)
-                  {:should should})
-                (when (seq must-not)
-                  {:must-not must-not}))})
-
-(defn query-filtered [query filter]
-  {:pre [query filter]}
-  {:filtered {:query query
-              :filter filter}})
-
-(defn query-range [field & {:keys [lt lte gt gte]}]
-  {:pre [field (or lt lte gt gte)]}
-  {:range {field (merge (when lt
-                          {:lt lt})
-                        (when lte
-                          {:lte lte})
-                        (when gt
-                          {:gt gt})
-                        (when gte
-                          {:gte gte}))}})
-
-(defn query-ids [ids]
-  {:pre [(seq ids)]}
-  {:ids {:values ids}})
-
-(defn filter-ids [ids]
-  {:pre [(seq ids)]}
-  {:ids {:values ids}})
-
-(defn filter-not [filter]
-  {:not filter})
-
-(defn filter-terms [field terms & {:keys [execution]}]
-  {:pre [(contains? #{:plain :bool :and :or} execution)]}
-  {:terms {field terms :execution execution}})
-
 (defn search-once* [es index-names query options]
   {:pre [es]}
   (let [search-type (:search-type options)

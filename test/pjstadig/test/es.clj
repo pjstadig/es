@@ -9,6 +9,7 @@
 (ns pjstadig.test.es
   (:require [clojure.test :refer :all]
             [pjstadig.es :refer :all]
+            [pjstadig.es.query :as q]
             [pjstadig.util :refer [uuid-hex-str uuid-url-str]]))
 
 (def es "http://localhost:9200/")
@@ -121,7 +122,7 @@
     (index-refresh es [index-name0])
     (is (= [{"_id" id0 "t" 0 "s" s "p" p "o" o}]
            (search-hits (search es index-name0
-                                (query-term :s s)
+                                (q/term :s s)
                                 :fields ["_id" "t" "s" "p" "o"]))))
     (is (every? (comp ok? second first)
                 (get (doc-bulk es [(doc-bulk-create {:_index index-name0
@@ -136,7 +137,7 @@
     (is (= #{{"_id" id0 "t" 0 "s" s "p" p "o" o}
              {"_id" id1 "t" 0 "s" s "p" p "o" o}}
            (set (search-hits (search es index-name0
-                                     (query-term :s s)
+                                     (q/term :s s)
                                      :fields ["_id" "t" "s" "p" "o"])))))
     (is (every? (comp ok? second first)
                 (get (doc-bulk es index-name0 [(doc-bulk-create {:_type "0"
@@ -151,5 +152,5 @@
              {"_id" id1 "t" 0 "s" s "p" p "o" o}
              {"_id" id2 "t" 0 "s" s "p" p "o" o}}
            (set (search-hits (search es index-name0
-                                     (query-term :s s)
+                                     (q/term :s s)
                                      :fields ["_id" "t" "s" "p" "o"])))))))
