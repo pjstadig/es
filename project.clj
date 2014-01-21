@@ -1,4 +1,4 @@
-(defproject pjstadig/es "0.2.0"
+(defproject pjstadig/es "0.3.0-SNAPSHOT"
   :description "A simple REST-based Elasticsearch client for Clojure."
   :url "http://github.com/pjstadig/es"
   :license {:name "Mozilla Public License, v. 2.0"
