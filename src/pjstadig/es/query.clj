@@ -6,7 +6,8 @@
 ;;;;
 ;;;; This Source Code Form is "Incompatible With Secondary Licenses", as defined
 ;;;; by the Mozilla Public License, v. 2.0.
-(ns pjstadig.es.query)
+(ns pjstadig.es.query
+  (:refer-clojure :exclude [not range]))
 
 (defn term [field term]
   {:pre [field term]}
