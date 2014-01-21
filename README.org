@@ -4,17 +4,30 @@
 
   Tested with Elasticsearch 0.90.10.
 ** Example
-   : pjstadig.es> (index-create "http://localhost:9200/" "twitter" :settings {:index {:number_of_replicas 1}} 
-   :                                                               :mappings {:tweet {:properties {:user {:type :string :index :not_analyzed}
-   :                                                                                               :post_date {:type :date :format "YYYY-MM-DD'T'HH:mm:ss"}
-   :                                                                                               :message {:type :string}}}})
+   : pjstadig.es> (index-create "http://localhost:9200/" "twitter"
+   :                            :settings {:index {:number_of_replicas 1}}
+   :                            :mappings {:tweet {:properties {:user {:type :string :index :not_analyzed}
+   :                                                            :post_date {:type :date :format "YYYY-MM-DD'T'HH:mm:ss"}
+   :                                                            :message {:type :string}}}})
    : {"ok" true, "acknowledged" true}
-   : pjstadig.es> (doc-create "http://localhost:9200/" "twitter" {:_type "tweet"
-   :                                                              :_id 425444752310276096 
-   :                                                              :user "wm" 
-   :                                                              :post_date "2014-01-20T20:48:00"
-   :                                                              :message "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
-   : {"ok" true, "_index" "twitter", "_type" "tweet", "_id" "425444752310276096", "_version" 1}
+
+   doc-create, doc-index, doc-delete perform the create, index, and delete
+   operations (respectively) for a document.
+
+   : pjstadig.es> (doc-create "http://localhost:9200/" "twitter"
+   :                          {:_type "tweet"
+   :                           :_id 425444752310276096
+   :                           :user "wm"
+   :                           :post_date "2014-01-20T20:48:00"
+   :                           :message "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
+   : {"ok" true
+   :  "_index" "twitter"
+   :  "_type" "tweet"
+   :  "_id" "425444752310276096"
+   :  "_version" 1}
+
+   search-once will return a single page of raw Elasticsearch results.
+
    : pjstadig.es> (search-once "http://localhost:9200/" "twitter" (q/match-all))
    : {"hits"
    :  {"hits"
@@ -22,8 +35,7 @@
    :     "_index" "twitter",
    :     "_type" "tweet",
    :     "_source"
-   :     {"message"
-   :      "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU",
+   :     {"message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU",
    :      "user" "wm",
    :      "post_date" "2014-01-20T20:48:00",
    :      "_type" "tweet",
@@ -34,23 +46,119 @@
    :  "timed_out" false,
    :  "_shards" {"total" 5, "successful" 5, "failed" 0},
    :  "took" 1}
-   
-   search-once will return a single page of raw Elasticsearch results.  search
-   will return a lazy seq of all of the pages for the query.  You can use the
-   convenience function search-hits to get back the hits from the results for
-   either function.
-   
-   : pjstadig.es> (search-hits (search-once "http://localhost:9200/" "twitter" (q/match-all)))
-   : ({"post_date" "2014-01-20T20:48:00", "message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU", "_id" 425444752310276096, "user" "wm", "_type" "tweet"})
-   
-   By default, if no fields are specified, the entire _source will be returned.
+
+   You can use the convenience function search-hits to get back the hits from
+   the results.  By default, if no fields are specified, the entire _source will
+   be returned.
+
+   : pjstadig.es> (search-hits (search-once "http://localhost:9200/" "twitter"
+   :                                        (q/match-all)))
+   : ({"post_date" "2014-01-20T20:48:00",
+   :   "message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU",
+   :   "_id" 425444752310276096,
+   :   "user" "wm",
+   :   "_type" "tweet"})
+
    Otherwise the fields specified will be returned.
-   
-   : pjstadig.es> (search-hits (search-once "http://localhost:9200/" "twitter" (q/match-all) :fields [:message]))
+
+   : pjstadig.es> (search-hits (search-once "http://localhost:9200/" "twitter"
+   :                                        (q/match-all)
+   :                                        :fields [:message]))
    : ({"message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
-   : pjstadig.es> (search-hits (search "http://localhost:9200/" "twitter" (q/match-all) :fields [:message]))
-   : ({"message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
-** License
+
+   doc-bulk will perform bulk operations.  The doc-bulk-create, doc-bulk-index,
+   and doc-bulk-delete convenience functions will create a create, index, and
+   delete bulk operation (respectively) for use with doc-bulk.
+
+   : pjstadig.es> (doc-bulk "http://localhost:9200/" "twitter"
+   :                        [(doc-bulk-index {:_type "tweet"
+   :                                          :_id 425444752310276096
+   :                                          :user "wm"
+   :                                          :post_date "2014-01-20T20:48:00"
+   :                                          :message "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})])
+   : {"took" 3,
+   :  "items" [{"index"
+   :            {"_index" "twitter"
+   :             "_type" "tweet"
+   :             "_id" "425444752310276096"
+   :             "_version" 2
+   :             "ok" true}}]}
+
+   doc-bulk consumes, encodes, and transmits the bulk operations to
+   Elasticsearch incrementally.  So you can produce a lazy sequence of bulk
+   operations and it will not be realized into memory all at once.
+
+   : pjstadig.es> (doc-bulk "http://localhost:9200/" "twitter"
+   :                        (map doc-bulk-index
+   :                             (map #(hash-map :_type "tweet"
+   :                                             :_id %
+   :                                             :post_date "2014-01-01T12:00:00"
+   :                                             :message (str "foo" %))
+   :                                  (range 10000))))
+   : {"took" 328,
+   :   "items"
+   :   [{"index"
+   :     {"_index" "twitter",
+   :      "_type" "tweet",
+   :      "_id" "0",
+   :      "_version" 9,
+   :      "ok" true}}
+   :    {"index"
+   :     {"_index" "twitter",
+   :      "_type" "tweet",
+   :      "_id" "1",
+   :      "_version" 8,
+   :      "ok" true}}
+   :    {"index"
+   :     {"_index" "twitter",
+   :      "_type" "tweet",
+   :      "_id" "2",
+   :      "_version" 8,
+   :      "ok" true}}
+   :    {"index"
+   :     {"_index" "twitter",
+   :      "_type" "tweet",
+   :      "_id" "3",
+   :      "_version" 8,
+   :      "ok" true}}
+   :    {"index"
+   :     {"_index" "twitter",
+   :      "_type" "tweet",
+   :      "_id" "4",
+   :      "_version" 8,
+   :      "ok" true}}
+   :    ...]}
+
+   If you have a large non-bulk operation you can also stream it using
+   the :stream? option.
+
+   : pjstadig.es> (doc-index "http://localhost:9200/" "twitter"
+   :                         {:_type "tweet"
+   :                          :_id 425444752310276096
+   :                          :user "wm"
+   :                          :post_date "2014-01-20T20:48:00"
+   :                          :message "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"}
+   :                         :stream? true)
+   : {"ok" true
+   :  "_index" "twitter"
+   :  "_type" "tweet"
+   :  "_id" "425444752310276096"
+   :  "_version" 3}
+
+   Instead of search-once you can use search to return a lazy sequence of all of
+   the pages of results for a search query.  You can also use the search-hits
+   convenience function to get the hits from the result.
+
+   : pjstadig.es> (search-hits (search "http://localhost:9200/" "twitter"
+   :                                   (q/match-all)
+   :                                   :fields [:message]))
+   : ({"message" "foo10000"}
+   :  {"message" "foo10005"}
+   :  {"message" "foo10012"}
+   :  {"message" "foo10017"}
+   :  {"message" "foo10024"}
+   :  ...)
+* License
   : Copyright © 2014 Paul Stadig. All rights reserved.
   : 
   : This Source Code Form is subject to the terms of the Mozilla Public License,
