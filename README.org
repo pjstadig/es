@@ -92,46 +92,51 @@
    Elasticsearch incrementally.  So you can produce a lazy sequence of bulk
    operations and it will not be realized into memory all at once.
 
-   : pjstadig.es> (doc-bulk "http://localhost:9200/" "twitter"
-   :                        (map doc-bulk-index
-   :                             (map #(hash-map :_type "tweet"
-   :                                             :_id %
-   :                                             :post_date "2014-01-01T12:00:00"
-   :                                             :message (str "foo" %))
-   :                                  (range 10000))))
-   : {"took" 328,
-   :   "items"
-   :   [{"index"
-   :     {"_index" "twitter",
-   :      "_type" "tweet",
-   :      "_id" "0",
-   :      "_version" 9,
-   :      "ok" true}}
-   :    {"index"
-   :     {"_index" "twitter",
-   :      "_type" "tweet",
-   :      "_id" "1",
-   :      "_version" 8,
-   :      "ok" true}}
-   :    {"index"
-   :     {"_index" "twitter",
-   :      "_type" "tweet",
-   :      "_id" "2",
-   :      "_version" 8,
-   :      "ok" true}}
-   :    {"index"
-   :     {"_index" "twitter",
-   :      "_type" "tweet",
-   :      "_id" "3",
-   :      "_version" 8,
-   :      "ok" true}}
-   :    {"index"
-   :     {"_index" "twitter",
-   :      "_type" "tweet",
-   :      "_id" "4",
-   :      "_version" 8,
-   :      "ok" true}}
-   :    ...]}
+   NOTE: Depending on how much data you are sending, you will probably need to
+   tweak the :socket-timeout configuration value in \*default-http-options\*.
+   Otherwise the socket may timeout waiting for ES to execute the operations.
+
+   : pjstadig.es> (binding [*default-http-options* (assoc *default-http-options* :socket-timeout 45000)] 
+   :                (doc-bulk "http://localhost:9200/" "twitter"
+   :                          (map doc-bulk-index
+   :                               (map #(hash-map :_type "tweet"
+   :                                               :_id %
+   :                                               :post_date "2014-01-01T12:00:00"
+   :                                               :message (str "foo" %))
+   :                                    (range 500000)))))
+   : {"took" 15761,
+   :  "items"
+   :  [{"index"
+   :    {"_index" "twitter",
+   :     "_type" "tweet",
+   :     "_id" "0",
+   :     "_version" 7,
+   :     "ok" true}}
+   :   {"index"
+   :    {"_index" "twitter",
+   :     "_type" "tweet",
+   :     "_id" "1",
+   :     "_version" 7,
+   :     "ok" true}}
+   :   {"index"
+   :    {"_index" "twitter",
+   :     "_type" "tweet",
+   :     "_id" "2",
+   :     "_version" 7,
+   :     "ok" true}}
+   :   {"index"
+   :    {"_index" "twitter",
+   :     "_type" "tweet",
+   :     "_id" "3",
+   :     "_version" 7,
+   :     "ok" true}}
+   :   {"index"
+   :    {"_index" "twitter",
+   :     "_type" "tweet",
+   :     "_id" "4",
+   :     "_version" 7,
+   :     "ok" true}}
+   :   ...]}
 
    If you have a large non-bulk operation you can also stream it using
    the :stream? option.
