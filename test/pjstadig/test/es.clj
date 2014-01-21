@@ -154,3 +154,30 @@
            (set (search-hits (search es index-name0
                                      (q/term :s s)
                                      :fields ["_id" "t" "s" "p" "o"])))))))
+
+(deftest test-search-hits
+  (let [mappings {"0" {"properties" {"t" {"type" "long"}
+                                     "s" {"type" "string"
+                                          "index" "not_analyzed"}
+                                     "p" {"type" "string"
+                                          "index" "not_analyzed"}
+                                     "o" {"type" "string"}}}}
+        id0 (uuid-url-str)
+        id1 (uuid-url-str)
+        id2 (uuid-url-str)
+        s (uuid-url-str)
+        p (uuid-url-str)
+        o (uuid-url-str)]
+    (index-create es index-name0 :mappings mappings)
+    (is (= id0
+           (get (doc-create es index-name0
+                            {:_type "0" :_id id0 :t 0 :s s :p p :o o})
+                "_id")))
+    (index-refresh es [index-name0])
+    (is (= [{"_id" id0 "t" 0 "s" s "p" p "o" o}]
+           (search-hits (search es index-name0
+                                (q/term :s s)
+                                :fields ["_id" "t" "s" "p" "o"]))))
+    (is (= [{"_type" "0", "_id" id0, "t" 0, "s" s "p" p "o" o}]
+           (search-hits (search es index-name0
+                                (q/term :s s)))))))

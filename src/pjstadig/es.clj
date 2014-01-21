@@ -289,7 +289,9 @@
 
 (defn search-hits [result]
   (if (map? result)
-    (map #(get % "fields") (get-in result ["hits" "hits"]))
+    (map #(or (get % "_source")
+              (get % "fields"))
+         (get-in result ["hits" "hits"]))
     (mapcat search-hits result)))
 
 (defn search* [es index-names query options]
