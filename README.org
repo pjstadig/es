@@ -93,7 +93,7 @@
    operations and it will not be realized into memory all at once.
 
    NOTE: Depending on how much data you are sending, you will probably need to
-   tweak the :socket-timeout configuration value in \*default-http-options\*.
+   tweak the :socket-timeout configuration value in ~*default-http-options*~.
    Otherwise the socket may timeout waiting for ES to execute the operations.
 
    : pjstadig.es> (binding [*default-http-options* (assoc *default-http-options* :socket-timeout 45000)] 
