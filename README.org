@@ -2,6 +2,10 @@
 * es
   A simple REST-based Elasticsearch client for Clojure.
 
+  It does not support every Elasticsearch operation or API, but if there are
+  operations or APIs you'd like to see supported, open an issue or send a pull
+  request.
+
   Tested with Elasticsearch 0.90.10.
 ** Example
    : pjstadig.es> (index-create "http://localhost:9200/" "twitter"
