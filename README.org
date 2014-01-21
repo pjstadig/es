@@ -3,6 +3,53 @@
   A simple REST-based Elasticsearch client for Clojure.
 
   Tested with Elasticsearch 0.90.10.
+** Example
+   : pjstadig.es> (index-create "http://localhost:9200/" "twitter" :settings {:index {:number_of_replicas 1}} 
+   :                                                               :mappings {:tweet {:properties {:user {:type :string :index :not_analyzed}
+   :                                                                                               :post_date {:type :date :format "YYYY-MM-DD'T'HH:mm:ss"}
+   :                                                                                               :message {:type :string}}}})
+   : {"ok" true, "acknowledged" true}
+   : pjstadig.es> (doc-create "http://localhost:9200/" "twitter" {:_type "tweet"
+   :                                                              :_id 425444752310276096 
+   :                                                              :user "wm" 
+   :                                                              :post_date "2014-01-20T20:48:00"
+   :                                                              :message "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
+   : {"ok" true, "_index" "twitter", "_type" "tweet", "_id" "425444752310276096", "_version" 1}
+   : pjstadig.es> (search-once "http://localhost:9200/" "twitter" (q/match-all))
+   : {"hits"
+   :  {"hits"
+   :   [{"_score" 1.0,
+   :     "_index" "twitter",
+   :     "_type" "tweet",
+   :     "_source"
+   :     {"message"
+   :      "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU",
+   :      "user" "wm",
+   :      "post_date" "2014-01-20T20:48:00",
+   :      "_type" "tweet",
+   :      "_id" 425444752310276096},
+   :     "_id" "425444752310276096"}],
+   :   "total" 1,
+   :   "max_score" 1.0},
+   :  "timed_out" false,
+   :  "_shards" {"total" 5, "successful" 5, "failed" 0},
+   :  "took" 1}
+   
+   search-once will return a single page of raw Elasticsearch results.  search
+   will return a lazy seq of all of the pages for the query.  You can use the
+   convenience function search-hits to get back the hits from the results for
+   either function.
+   
+   : pjstadig.es> (search-hits (search-once "http://localhost:9200/" "twitter" (q/match-all)))
+   : ({"post_date" "2014-01-20T20:48:00", "message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU", "_id" 425444752310276096, "user" "wm", "_type" "tweet"})
+   
+   By default, if no fields are specified, the entire _source will be returned.
+   Otherwise the fields specified will be returned.
+   
+   : pjstadig.es> (search-hits (search-once "http://localhost:9200/" "twitter" (q/match-all) :fields [:message]))
+   : ({"message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
+   : pjstadig.es> (search-hits (search "http://localhost:9200/" "twitter" (q/match-all) :fields [:message]))
+   : ({"message" "Really excited about what I'm reading to the kids tonight. pic.twitter.com/BafBIAbHSU"})
 ** License
   : Copyright © 2014 Paul Stadig. All rights reserved.
   : 
