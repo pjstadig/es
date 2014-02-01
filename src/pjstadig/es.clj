@@ -109,12 +109,13 @@
         pos (PipedOutputStream.)
         wos (io/writer pos :encoding "utf-8")]
     (.connect pis pos)
-    (doto (Thread. #(with-open [wos wos]
-                      (try
-                        (f wos)
-                        (catch Throwable t
-                          (log/debug t "piped-body thread died unexpectedly")
-                          (throw t)))))
+    (doto (Thread. (bound-fn []
+                     (with-open [wos wos]
+                       (try
+                         (f wos)
+                         (catch Throwable t
+                           (log/debug t "piped-body thread died unexpectedly")
+                           (throw t))))))
       .start)
     {:body pis}))
 
