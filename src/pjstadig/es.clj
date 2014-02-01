@@ -145,11 +145,13 @@
   (when (and (string? index-name) (pos? (count index-name)))
     index-name))
 
-(defn valid-type?
-  "True if type is a keyword or non-empty string"
-  [type]
-  (when (or (keyword type) (and (string? type) (pos? (count type))))
-    type))
+(defn valid-type-name?
+  "True if type-name is a keyword or non-empty string"
+  [type-name]
+  (when (or (keyword type-name)
+            (and (string? type-name)
+                 (pos? (count type-name))))
+    type-name))
 
 (defn valid-id?
   "True if id is a keyword, symbol, or non-empty string"
@@ -264,11 +266,11 @@
   (http-get (url es (index-list-str index-names) "_mapping")))
 
 (defn mapping-put
-  "Puts mapping for index-name and type."
-  [es index-name type mapping]
-  {:pre [es (valid-index-name? index-name) (valid-type? type)]}
-  (ok? (http-put (url es index-name type "_mapping")
-                 (json-body (select-keys mapping [type])))))
+  "Puts mapping for index-name and type-name."
+  [es index-name type-name mapping]
+  {:pre [es (valid-index-name? index-name) (valid-type-name? type-name)]}
+  (ok? (http-put (url es index-name type-name "_mapping")
+                 (json-body (select-keys mapping [type-name])))))
 
 (defn search-once* [es index-names query options]
   {:pre [es]}
@@ -313,10 +315,10 @@
   (search* es index-names query options))
 
 (defn doc-type
-  "Gets the type (via :_type or \"_type\") from doc."
+  "Gets the type-name (via :_type or \"_type\") from doc."
   [doc]
-  (if-let [type (or (:_type doc) (get doc "_type"))]
-    (name type)))
+  (if-let [type-name (or (:_type doc) (get doc "_type"))]
+    (name type-name)))
 
 (defn doc-id
   "Gets the id (via :_id or \"_id\") from doc."
@@ -340,10 +342,10 @@
   [es index-name doc & {:keys [stream?] :as options}]
   {:pre [(doc-type doc) (or (nil? (doc-id doc)) (valid-id? (doc-id doc)))]}
   (let [body ((if stream? piped-json-body json-body) doc)
-        type (doc-type doc)]
+        type-name (doc-type doc)]
     (if-let [id (doc-id doc)]
-      (http-put (url es index-name type id "_create") body)
-      (http-post (url es index-name type) body))))
+      (http-put (url es index-name type-name id "_create") body)
+      (http-post (url es index-name type-name) body))))
 
 (defn doc-index
   "Index doc in index-name using the ES index operation (creates it if it
@@ -411,19 +413,19 @@
   "Creates a bulk operation to create a document in ES."
   ([source]
      (doc-bulk-create (:_type source) (:_id source) source))
-  ([type id source]
-     (doc-bulk-create (:_index source) type id source))
-  ([index-name type id source]
+  ([type-name id source]
+     (doc-bulk-create (:_index source) type-name id source))
+  ([index-name type-name id source]
      {:pre [(or (nil? index-name)
                 (valid-index-name? index-name))
             (or (nil? (:_index source))
                 (and (valid-index-name? (:_index source))
                      (or (nil? index-name)
                          (= index-name (:_index source)))))
-            (valid-type? type)
+            (valid-type-name? type-name)
             (or (nil? (:_type source))
-                (and (valid-type? (:_type source))
-                     (= (name type) (:_type source))))
+                (and (valid-type-name? (:_type source))
+                     (= (name type-name) (:_type source))))
             (valid-id? id)
             (or (nil? (:_id source))
                 (and (valid-id? (:_id source))
@@ -431,7 +433,7 @@
             (nil? (get source "_index"))
             (nil? (get source "_type"))
             (nil? (get source "_id"))]}
-     {:create (merge {:_type (name type) :_id id :source source}
+     {:create (merge {:_type (name type-name) :_id id :source source}
                      (when index-name
                        {:_index index-name}))}))
 
@@ -439,19 +441,19 @@
   "Creates a bulk operation to index a document in ES."
   ([source]
      (doc-bulk-index (:_type source) (:_id source) source))
-  ([type id source]
-     (doc-bulk-index (:_index source) type id source))
-  ([index-name type id source]
+  ([type-name id source]
+     (doc-bulk-index (:_index source) type-name id source))
+  ([index-name type-name id source]
      {:pre [(or (nil? index-name)
                 (valid-index-name? index-name))
             (or (nil? (:_index source))
                 (and (valid-index-name? (:_index source))
                      (or (nil? index-name)
                          (= index-name (:_index source)))))
-            (valid-type? type)
+            (valid-type-name? type-name)
             (or (nil? (:_type source))
-                (and (valid-type? (:_type source))
-                     (= (name type) (:_type source))))
+                (and (valid-type-name? (:_type source))
+                     (= (name type-name) (:_type source))))
             (valid-id? id)
             (or (nil? (:_id source))
                 (and (valid-id? (:_id source))
@@ -459,15 +461,16 @@
             (nil? (get source "_index"))
             (nil? (get source "_type"))
             (nil? (get source "_id"))]}
-     {:index (merge {:_type (name type) :_id id :source source}
+     {:index (merge {:_type (name type-name) :_id id :source source}
                     (when index-name
                       {:_index index-name}))}))
 
 (defn doc-bulk-delete
   "Creates a bulk operation to delete a document in ES."
-  ([type id]
-     {:pre [(valid-type? type) (valid-id? id)]}
-     {:delete {:_type type :_id id}})
-  ([index-name type id]
-     {:pre [(valid-index-name? index-name) (valid-type? type) (valid-id? id)]}
-     {:delete {:_index index-name :_type type :_id id}}))
+  ([type-name id]
+     {:pre [(valid-type-name? type-name) (valid-id? id)]}
+     {:delete {:_type type-name :_id id}})
+  ([index-name type-name id]
+     {:pre [(valid-index-name? index-name) (valid-type-name? type-name)
+            (valid-id? id)]}
+     {:delete {:_index index-name :_type type-name :_id id}}))
