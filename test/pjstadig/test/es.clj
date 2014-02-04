@@ -88,9 +88,7 @@
     (is (index-delete es index-name1))))
 
 (deftest test-mapping-ops
-  (let [mappings {"0" {"properties" {"s" {"type" "string"}
-                                     "p" {"type" "string"}
-                                     "o" {"type" "string"}}}}]
+  (let [mappings {"0" {"properties" {"subject" {"type" "string"}}}}]
     (index-create es index-name0 :mappings mappings)
     (is (= {index-name0 mappings} (mapping-get es index-name0)))
     (is (mapping-put es index-name0 "0" {"0"
@@ -102,82 +100,73 @@
            (mapping-get es index-name0)))))
 
 (deftest test-doc-ops
-  (let [mappings {"0" {"properties" {"t" {"type" "long"}
-                                     "s" {"type" "string"
-                                          "index" "not_analyzed"}
-                                     "p" {"type" "string"
-                                          "index" "not_analyzed"}
-                                     "o" {"type" "string"}}}}
+  (let [mappings {"0" {"properties" {"subject" {"type" "string"
+                                                "index" "not_analyzed"}
+                                     "body" {"type" "string"
+                                             "index" "not_analyzed"}}}}
         id0 (uuid-url-str)
         id1 (uuid-url-str)
         id2 (uuid-url-str)
-        s (uuid-url-str)
-        p (uuid-url-str)
-        o (uuid-url-str)]
+        subject "subject"
+        body "body"]
     (index-create es index-name0 :mappings mappings)
     (is (= id0
            (get (doc-create es index-name0
-                            {:_type "0" :_id id0 :t 0 :s s :p p :o o})
+                            {:_type "0" :_id id0 :subject subject :body body})
                 "_id")))
     (index-refresh es [index-name0])
-    (is (= [{"_id" id0 "t" 0 "s" s "p" p "o" o}]
+    (is (= [{"_id" id0 "subject" subject "body" body}]
            (search-hits (search es index-name0
-                                (q/term :s s)
-                                :fields ["_id" "t" "s" "p" "o"]))))
+                                (q/term :subject subject)
+                                :fields ["_id" "subject" "body"]))))
     (is (every? (comp ok? second first)
                 (get (doc-bulk es [(doc-bulk-create {:_index index-name0
                                                      :_type "0"
                                                      :_id id1
-                                                     :t 0
-                                                     :s s
-                                                     :p p
-                                                     :o o})])
+                                                     :subject subject
+                                                     :body body})])
                      "items")))
     (index-refresh es [index-name0])
-    (is (= #{{"_id" id0 "t" 0 "s" s "p" p "o" o}
-             {"_id" id1 "t" 0 "s" s "p" p "o" o}}
+    (is (= #{{"_id" id0 "subject" subject "body" body}
+             {"_id" id1 "subject" subject "body" body}}
            (set (search-hits (search es index-name0
-                                     (q/term :s s)
-                                     :fields ["_id" "t" "s" "p" "o"])))))
+                                     (q/term :subject subject)
+                                     :fields ["_id" "subject" "body"])))))
     (is (every? (comp ok? second first)
-                (get (doc-bulk es index-name0 [(doc-bulk-create {:_type "0"
-                                                                 :_id id2
-                                                                 :t 0
-                                                                 :s s
-                                                                 :p p
-                                                                 :o o})])
+                (get (doc-bulk es index-name0
+                               [(doc-bulk-create {:_type "0"
+                                                  :_id id2
+                                                  :subject subject
+                                                  :body body})])
                      "items")))
     (index-refresh es [index-name0])
-    (is (= #{{"_id" id0 "t" 0 "s" s "p" p "o" o}
-             {"_id" id1 "t" 0 "s" s "p" p "o" o}
-             {"_id" id2 "t" 0 "s" s "p" p "o" o}}
+    (is (= #{{"_id" id0 "subject" subject "body" body}
+             {"_id" id1 "subject" subject "body" body}
+             {"_id" id2 "subject" subject "body" body}}
            (set (search-hits (search es index-name0
-                                     (q/term :s s)
-                                     :fields ["_id" "t" "s" "p" "o"])))))))
+                                     (q/term :subject subject)
+                                     :fields ["_id" "subject" "body"])))))))
 
 (deftest test-search-hits
-  (let [mappings {"0" {"properties" {"t" {"type" "long"}
-                                     "s" {"type" "string"
-                                          "index" "not_analyzed"}
-                                     "p" {"type" "string"
-                                          "index" "not_analyzed"}
-                                     "o" {"type" "string"}}}}
+  (let [mappings {"0" {"properties" {"subject" {"type" "string"
+                                                "index" "not_analyzed"}
+                                     "body" {"type" "string"
+                                             "index" "not_analyzed"}}}}
         id0 (uuid-url-str)
         id1 (uuid-url-str)
         id2 (uuid-url-str)
-        s (uuid-url-str)
-        p (uuid-url-str)
-        o (uuid-url-str)]
+        subject "subject"
+        body "body"]
     (index-create es index-name0 :mappings mappings)
     (is (= id0
            (get (doc-create es index-name0
-                            {:_type "0" :_id id0 :t 0 :s s :p p :o o})
+                            {:_type "0" :_id id0 :subject subject :body body})
                 "_id")))
     (index-refresh es [index-name0])
-    (is (= [{"_id" id0 "t" 0 "s" s "p" p "o" o}]
+    (is (= [{"_id" id0 "subject" subject "body" body}]
            (search-hits (search es index-name0
-                                (q/term :s s)
-                                :fields ["_id" "t" "s" "p" "o"]))))
-    (is (= [{"_type" "0", "_id" id0, "t" 0, "s" s "p" p "o" o}]
+                                (q/term :subject subject)
+                                :fields ["_id" "subject" "body"]))))
+    (is (= [{"_type" "0", "_id" id0, "subject" subject "body" body}]
            (search-hits (search es index-name0
-                                (q/term :s s)))))))
+                                (q/term :subject subject)))))))
