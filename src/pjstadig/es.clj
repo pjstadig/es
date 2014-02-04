@@ -356,6 +356,17 @@
   (let [body ((if stream? piped-json-body json-body) doc)]
     (http-put (url es index-name (doc-type doc) (doc-id doc)) body)))
 
+(defn doc-delete
+  "Delete doc from index-name.  Will stream data to ES if the :stream? option is
+  truthy."
+  [es index-name type-name id & {:keys [stream?] :as options}]
+  {:pre [(valid-index-name? index-name) (valid-type-name? type-name)
+         (valid-id? id)]}
+  (let [body ((if stream? piped-json-body json-body) {:_index index-name
+                                                      :_type type-name
+                                                      :_id id})]
+    (http-delete (url es index-name type-name id) body)))
+
 (defn op-action
   "Returns the action from op (its first and only key)."
   [op]

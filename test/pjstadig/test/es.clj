@@ -119,6 +119,39 @@
            (search-hits (search es index-name0
                                 (q/term :subject subject)
                                 :fields ["_id" "subject" "body"]))))
+    (is (ok? (doc-index es index-name0
+                        {:_type "0" :_id id0 :subject subject :body "foo"})))
+    (index-refresh es [index-name0])
+    (is (= [{"_id" id0 "subject" subject "body" "foo"}]
+           (search-hits (search es index-name0
+                                (q/term :subject subject)
+                                :fields ["_id" "subject" "body"]))))
+    (is (ok? (doc-delete es index-name0 "0" id0)))
+    (index-refresh es [index-name0])
+    (is (empty? (search-hits (search es index-name0
+                                     (q/term :subject subject)
+                                     :fields ["_id" "subject" "body"]))))))
+
+(deftest test-bulk
+  (let [mappings {"0" {"properties" {"subject" {"type" "string"
+                                                "index" "not_analyzed"}
+                                     "body" {"type" "string"
+                                             "index" "not_analyzed"}}}}
+        id0 (uuid-url-str)
+        id1 (uuid-url-str)
+        id2 (uuid-url-str)
+        subject "subject"
+        body "body"]
+    (index-create es index-name0 :mappings mappings)
+    (is (= id0
+           (get (doc-create es index-name0
+                            {:_type "0" :_id id0 :subject subject :body body})
+                "_id")))
+    (index-refresh es [index-name0])
+    (is (= [{"_id" id0 "subject" subject "body" body}]
+           (search-hits (search es index-name0
+                                (q/term :subject subject)
+                                :fields ["_id" "subject" "body"]))))
     (is (every? (comp ok? second first)
                 (get (doc-bulk es (bulk-create-ops [{:_index index-name0
                                                      :_type "0"
