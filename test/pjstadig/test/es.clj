@@ -132,6 +132,9 @@
                                      (q/term :subject subject)
                                      :fields ["_id" "subject" "body"]))))))
 
+(defn bulk-ok? [response]
+  (every? (comp ok? second first) (get response ["items"])))
+
 (deftest test-bulk
   (let [mappings {"0" {"properties" {"subject" {"type" "string"
                                                 "index" "not_analyzed"}
@@ -139,43 +142,27 @@
                                              "index" "not_analyzed"}}}}
         id0 (uuid-url-str)
         id1 (uuid-url-str)
-        id2 (uuid-url-str)
         subject "subject"
         body "body"]
     (index-create es index-name0 :mappings mappings)
-    (is (= id0
-           (get (doc-create es index-name0
-                            {:_type "0" :_id id0 :subject subject :body body})
-                "_id")))
+    (is (bulk-ok? (doc-bulk es (bulk-create-ops [{:_index index-name0
+                                                  :_type "0"
+                                                  :_id id0
+                                                  :subject subject
+                                                  :body body}]))))
     (index-refresh es [index-name0])
-    (is (= [{"_id" id0 "subject" subject "body" body}]
-           (search-hits (search es index-name0
-                                (q/term :subject subject)
-                                :fields ["_id" "subject" "body"]))))
-    (is (every? (comp ok? second first)
-                (get (doc-bulk es (bulk-create-ops [{:_index index-name0
-                                                     :_type "0"
-                                                     :_id id1
-                                                     :subject subject
-                                                     :body body}]))
-                     "items")))
-    (index-refresh es [index-name0])
-    (is (= #{{"_id" id0 "subject" subject "body" body}
-             {"_id" id1 "subject" subject "body" body}}
+    (is (= #{{"_id" id0 "subject" subject "body" body}}
            (set (search-hits (search es index-name0
                                      (q/term :subject subject)
                                      :fields ["_id" "subject" "body"])))))
-    (is (every? (comp ok? second first)
-                (get (doc-bulk-for-index es index-name0
-                                         (bulk-create-ops [{:_type "0"
-                                                            :_id id2
-                                                            :subject subject
-                                                            :body body}]))
-                     "items")))
+    (is (bulk-ok? (doc-bulk-for-index es index-name0
+                                      (bulk-create-ops [{:_type "0"
+                                                         :_id id1
+                                                         :subject subject
+                                                         :body body}]))))
     (index-refresh es [index-name0])
     (is (= #{{"_id" id0 "subject" subject "body" body}
-             {"_id" id1 "subject" subject "body" body}
-             {"_id" id2 "subject" subject "body" body}}
+             {"_id" id1 "subject" subject "body" body}}
            (set (search-hits (search es index-name0
                                      (q/term :subject subject)
                                      :fields ["_id" "subject" "body"])))))))
