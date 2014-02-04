@@ -13,7 +13,7 @@ formatted, 1 if it isn't."
 
 (when (> emacs-major-version 23)
   ;; Emacs 24 needs new whitespace-style settings
-  (setq whitespace-style '(face trailing lines-tail tabs)
+  (setq whitespace-style '(face trailing lines tabs)
         whitespace-line-column 80))
 
 (defun my-clojure-test-for (namespace)
