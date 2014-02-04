@@ -409,68 +409,52 @@
                 (piped-body #(doseq [op ops]
                                (op-write! (op-prep index-name op) %))))))
 
-(defn doc-bulk-create
-  "Creates a bulk operation to create a document in ES."
-  ([source]
-     (doc-bulk-create (:_type source) (:_id source) source))
-  ([type-name id source]
-     (doc-bulk-create (:_index source) type-name id source))
-  ([index-name type-name id source]
-     {:pre [(or (nil? index-name)
-                (valid-index-name? index-name))
-            (or (nil? (:_index source))
-                (and (valid-index-name? (:_index source))
-                     (or (nil? index-name)
-                         (= index-name (:_index source)))))
-            (valid-type-name? type-name)
-            (or (nil? (:_type source))
-                (and (valid-type-name? (:_type source))
-                     (= (name type-name) (:_type source))))
-            (valid-id? id)
-            (or (nil? (:_id source))
-                (and (valid-id? (:_id source))
-                     (= id (:_id source))))
-            (nil? (get source "_index"))
-            (nil? (get source "_type"))
-            (nil? (get source "_id"))]}
-     {:create (merge {:_type (name type-name) :_id id :source source}
-                     (when index-name
-                       {:_index index-name}))}))
+(defn bulk-write! [metas&sources writer]
+  (doseq [doc metas&sources]
+    (json/encode-stream doc writer)
+    (.write writer "\n")))
 
-(defn doc-bulk-index
-  "Creates a bulk operation to index a document in ES."
-  ([source]
-     (doc-bulk-index (:_type source) (:_id source) source))
-  ([type-name id source]
-     (doc-bulk-index (:_index source) type-name id source))
-  ([index-name type-name id source]
-     {:pre [(or (nil? index-name)
-                (valid-index-name? index-name))
-            (or (nil? (:_index source))
-                (and (valid-index-name? (:_index source))
-                     (or (nil? index-name)
-                         (= index-name (:_index source)))))
-            (valid-type-name? type-name)
-            (or (nil? (:_type source))
-                (and (valid-type-name? (:_type source))
-                     (= (name type-name) (:_type source))))
-            (valid-id? id)
-            (or (nil? (:_id source))
-                (and (valid-id? (:_id source))
-                     (= id (:_id source))))
-            (nil? (get source "_index"))
-            (nil? (get source "_type"))
-            (nil? (get source "_id"))]}
-     {:index (merge {:_type (name type-name) :_id id :source source}
-                    (when index-name
-                      {:_index index-name}))}))
+(defn bulk-post
+  ([url metas&sources]
+     (http-post url (piped-body (partial bulk-write! metas&sources))))
+  ([url metas&sources params]
+     (http-post url (assoc (piped-body (partial bulk-write! metas&sources))
+                      :query-params params))))
 
-(defn doc-bulk-delete
-  "Creates a bulk operation to delete a document in ES."
-  ([type-name id]
-     {:pre [(valid-type-name? type-name) (valid-id? id)]}
-     {:delete {:_type type-name :_id id}})
-  ([index-name type-name id]
-     {:pre [(valid-index-name? index-name) (valid-type-name? type-name)
-            (valid-id? id)]}
-     {:delete {:_index index-name :_type type-name :_id id}}))
+(defn doc-bulk
+  "Performs bulk operations."
+  ([es metas&sources]
+     (bulk-post (url es "_bulk") metas&sources))
+  ([es metas&sources params]
+     (bulk-post (url es "_bulk") metas&sources params)))
+
+(defn doc-bulk-for-index
+  "Performs bulk operations against index-name."
+  ([es index-name metas&sources]
+     (bulk-post (url es index-name "_bulk") metas&sources))
+  ([es index-name metas&sources params]
+     (bulk-post (url es index-name "_bulk") metas&sources params)))
+
+(defn doc-bulk-for-index-and-type
+  "Performs bulk operations against index-name and type-name."
+  ([es index-name type-name metas&sources]
+     (bulk-post (url es index-name type-name "_bulk") metas&sources))
+  ([es index-name type-name metas&sources params]
+     (bulk-post (url es index-name type-name "_bulk") metas&sources)))
+
+(defn select-keys-or-strs [m ks]
+  (reduce (fn [r k]
+            (if (contains? m k)
+              (assoc r k (k m))
+              (let [s (name k)]
+                (if (contains? m s)
+                  (assoc r k (get m s))
+                  r))))
+          {}
+          ks))
+
+(defn bulk-create-ops [sources]
+  (mapcat (fn [source]
+            [{:create (select-keys-or-strs source [:_index :_type :_id])}
+             source])
+          sources))

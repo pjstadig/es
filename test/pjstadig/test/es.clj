@@ -120,11 +120,11 @@
                                 (q/term :subject subject)
                                 :fields ["_id" "subject" "body"]))))
     (is (every? (comp ok? second first)
-                (get (doc-bulk es [(doc-bulk-create {:_index index-name0
+                (get (doc-bulk es (bulk-create-ops [{:_index index-name0
                                                      :_type "0"
                                                      :_id id1
                                                      :subject subject
-                                                     :body body})])
+                                                     :body body}]))
                      "items")))
     (index-refresh es [index-name0])
     (is (= #{{"_id" id0 "subject" subject "body" body}
@@ -133,11 +133,11 @@
                                      (q/term :subject subject)
                                      :fields ["_id" "subject" "body"])))))
     (is (every? (comp ok? second first)
-                (get (doc-bulk es index-name0
-                               [(doc-bulk-create {:_type "0"
-                                                  :_id id2
-                                                  :subject subject
-                                                  :body body})])
+                (get (doc-bulk-for-index es index-name0
+                                         (bulk-create-ops [{:_type "0"
+                                                            :_id id2
+                                                            :subject subject
+                                                            :body body}]))
                      "items")))
     (index-refresh es [index-name0])
     (is (= #{{"_id" id0 "subject" subject "body" body}
