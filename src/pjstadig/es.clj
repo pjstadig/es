@@ -367,59 +367,6 @@
                                                       :_id id})]
     (http-delete (url es index-name type-name id) body)))
 
-(defn op-action
-  "Returns the action from op (its first and only key)."
-  [op]
-  (first (keys op)))
-
-(defn op-source
-  "Returns the source from op."
-  [op]
-  (get-in op [(op-action op) :source]))
-
-(defn op-source-meta
-  "Returns the meta from the source of the op (the _index, _type, and _id
-  keys)."
-  [op]
-  (select-keys (op-source op) [:_index "_index" :_type "_type" :_id "_id"]))
-
-(defn op-prep
-  "Prep op to be sent to ES.  It merges the meta from the source of the op into
-  the op, and merges in the index-name if it is specified."
-  ([op]
-     (let [action (op-action op)]
-       (update-in op [action] #(merge (op-source-meta op)
-                                      %))))
-  ([index-name op]
-     (let [action (op-action op)]
-       (update-in op [action] #(merge (when index-name
-                                        {:_index index-name})
-                                      (op-source-meta op)
-                                      %)))))
-
-(defn op-write!
-  "Writes JSON encoded op to writer."
-  [op wos]
-  (let [action (op-action op)
-        source (op-source op)
-        op (update-in op [action] dissoc :source)
-        s (json/encode-stream op wos)]
-    (.write wos "\n")
-    (when source
-      (json/encode-stream source wos)
-      (.write wos "\n"))))
-
-(defn doc-bulk
-  "Performs bulk index operations."
-  ([es ops]
-     (http-post (url es "_bulk")
-                (piped-body #(doseq [op ops]
-                               (op-write! (op-prep op) %)))))
-  ([es index-name ops]
-     (http-post (url es "_bulk")
-                (piped-body #(doseq [op ops]
-                               (op-write! (op-prep index-name op) %))))))
-
 (defn bulk-write! [metas&sources writer]
   (doseq [doc metas&sources]
     (json/encode-stream doc writer)
