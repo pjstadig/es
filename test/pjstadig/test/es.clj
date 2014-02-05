@@ -189,7 +189,8 @@
                           (fn [source]
                             (merge (select-keys source ["_index" "_type" "_id"])
                                    {"script"
-                                    (str "ctx._source.body=\"" body "\"")})))]
+                                    (str "ctx._source.body=\"" body "\"")
+                                    "_retry_on_conflict" "2"})))]
         (is (->> (bulk-update-ops (map (make-update "body2") [doc0 doc1 doc2]))
                  (doc-bulk es)
                  bulk-ok?))

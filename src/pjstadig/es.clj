@@ -478,7 +478,8 @@
 
 (defn bulk-update-ops [sources]
   (mapcat (fn [source]
-            [{:update (select-keys-or-strs source [:_index :_type :_id])}
+            [{:update (select-keys-or-strs source [:_index :_type :_id
+                                                   :_retry_on_conflict])}
              source])
           sources))
 
