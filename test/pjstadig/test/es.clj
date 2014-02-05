@@ -169,6 +169,21 @@
                bulk-ok?))
       (index-refresh es [index-name0])
       (is (= #{doc0 doc1 doc2} (query))))
+    (testing "index operations (and refresh param)"
+      (is (->> (bulk-index-ops (map #(assoc % "body" "body1")
+                                    [doc0 doc1 doc2]))
+               (#(doc-bulk es % {:refresh true}))
+               bulk-ok?))
+      (is (= (set (map #(assoc % "body" "body1") [doc0 doc1 doc2])) (query)))
+      (is (->> (bulk-index-ops (map #(assoc % "body" "body2") [doc0 doc1 doc2]))
+               (#(doc-bulk-for-index es index-name0 % {:refresh true}))
+               bulk-ok?))
+      (is (= (set (map #(assoc % "body" "body2") [doc0 doc1 doc2])) (query)))
+      (is (->> (bulk-index-ops (map #(assoc % "body" "body3") [doc0 doc1 doc2]))
+               (#(doc-bulk-for-index-and-type es index-name0 "0" %
+                                              {:refresh true}))
+               bulk-ok?))
+      (is (= (set (map #(assoc % "body" "body3") [doc0 doc1 doc2])) (query))))
     (testing "update operations"
       (let [make-update (fn [body]
                           (fn [source]

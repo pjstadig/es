@@ -451,7 +451,7 @@
   ([es index-name type-name metas&sources]
      (bulk-post (url es index-name type-name "_bulk") metas&sources))
   ([es index-name type-name metas&sources params]
-     (bulk-post (url es index-name type-name "_bulk") metas&sources)))
+     (bulk-post (url es index-name type-name "_bulk") metas&sources params)))
 
 (defn select-keys-or-strs [m ks]
   (reduce (fn [r k]
