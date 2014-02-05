@@ -481,3 +481,8 @@
             [{:update (select-keys-or-strs source [:_index :_type :_id])}
              source])
           sources))
+
+(defn bulk-delete-ops [sources]
+  (map (fn [source]
+         {:delete (select-keys-or-strs source [:_index :_type :_id])})
+       sources))

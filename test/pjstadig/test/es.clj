@@ -204,7 +204,23 @@
                  (doc-bulk-for-index-and-type es index-name0 "0")
                  bulk-ok?))
         (index-refresh es [index-name0])
-        (is (= #{doc0 doc1 doc2} (query)))))))
+        (is (= #{doc0 doc1 doc2} (query)))))
+    (testing "delete operations"
+      (is (->> (bulk-delete-ops [doc0])
+               (doc-bulk es)
+               bulk-ok?))
+      (index-refresh es index-name0)
+      (is (= (set [doc1 doc2]) (query)))
+      (is (->> (bulk-delete-ops [doc1])
+               (doc-bulk-for-index es index-name0)
+               bulk-ok?))
+      (index-refresh es index-name0)
+      (is (= (set [doc2]) (query)))
+      (is (->> (bulk-delete-ops [doc2])
+               (doc-bulk-for-index-and-type es index-name0 "0")
+               bulk-ok?))
+      (index-refresh es index-name0)
+      (is (empty? (query))))))
 
 (deftest test-search-hits
   (let [mappings {"0" {"properties" {"subject" {"type" "string"
