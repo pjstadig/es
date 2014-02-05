@@ -136,36 +136,55 @@
   (every? (comp ok? second first) (get response ["items"])))
 
 (deftest test-bulk
-  (let [mappings {"0" {"properties" {"subject" {"type" "string"
+  (let [query #(->> (q/term :subject "subject")
+                    (search es index-name0)
+                    search-hits
+                    set)
+        mappings {"0" {"properties" {"subject" {"type" "string"
                                                 "index" "not_analyzed"}
                                      "body" {"type" "string"
                                              "index" "not_analyzed"}}}}
-        id0 (uuid-url-str)
-        id1 (uuid-url-str)
-        subject "subject"
-        body "body"]
+        make-doc #(hash-map "_index" index-name0
+                            "_type" "0"
+                            "_id" (uuid-url-str)
+                            "subject" "subject"
+                            "body" "body")
+        doc0 (make-doc)
+        doc1 (make-doc)
+        doc2 (make-doc)]
     (index-create es index-name0 :mappings mappings)
-    (is (bulk-ok? (doc-bulk es (bulk-create-ops [{:_index index-name0
-                                                  :_type "0"
-                                                  :_id id0
-                                                  :subject subject
-                                                  :body body}]))))
-    (index-refresh es [index-name0])
-    (is (= #{{"_id" id0 "subject" subject "body" body}}
-           (set (search-hits (search es index-name0
-                                     (q/term :subject subject)
-                                     :fields ["_id" "subject" "body"])))))
-    (is (bulk-ok? (doc-bulk-for-index es index-name0
-                                      (bulk-create-ops [{:_type "0"
-                                                         :_id id1
-                                                         :subject subject
-                                                         :body body}]))))
-    (index-refresh es [index-name0])
-    (is (= #{{"_id" id0 "subject" subject "body" body}
-             {"_id" id1 "subject" subject "body" body}}
-           (set (search-hits (search es index-name0
-                                     (q/term :subject subject)
-                                     :fields ["_id" "subject" "body"])))))))
+    (testing "create operations"
+      (is (->> (bulk-create-ops [doc0])
+               (doc-bulk es)
+               bulk-ok?))
+      (index-refresh es [index-name0])
+      (is (= #{doc0} (query)))
+      (is (->> (bulk-create-ops [doc1])
+               (doc-bulk-for-index es index-name0)
+               bulk-ok?))
+      (index-refresh es [index-name0])
+      (is (= #{doc0 doc1} (query)))
+      (is (->> (bulk-create-ops [doc2])
+               (doc-bulk-for-index-and-type es index-name0 "0")
+               bulk-ok?))
+      (index-refresh es [index-name0])
+      (is (= #{doc0 doc1 doc2} (query))))
+    (testing "index operations"
+      (is (->> (bulk-index-ops (map #(assoc % "body" "body1") [doc0 doc1 doc2]))
+               (doc-bulk es)
+               bulk-ok?))
+      (index-refresh es [index-name0])
+      (is (= (set (map #(assoc % "body" "body1") [doc0 doc1 doc2])) (query)))
+      (is (->> (bulk-index-ops (map #(assoc % "body" "body2") [doc0 doc1 doc2]))
+               (doc-bulk-for-index es index-name0)
+               bulk-ok?))
+      (index-refresh es [index-name0])
+      (is (= (set (map #(assoc % "body" "body2") [doc0 doc1 doc2])) (query)))
+      (is (->> (bulk-index-ops (map #(assoc % "body" "body3") [doc0 doc1 doc2]))
+               (doc-bulk-for-index-and-type es index-name0 "0")
+               bulk-ok?))
+      (index-refresh es [index-name0])
+      (is (= (set (map #(assoc % "body" "body3") [doc0 doc1 doc2])) (query))))))
 
 (deftest test-search-hits
   (let [mappings {"0" {"properties" {"subject" {"type" "string"

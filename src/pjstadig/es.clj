@@ -469,3 +469,9 @@
             [{:create (select-keys-or-strs source [:_index :_type :_id])}
              source])
           sources))
+
+(defn bulk-index-ops [sources]
+  (mapcat (fn [source]
+            [{:index (select-keys-or-strs source [:_index :_type :_id])}
+             source])
+          sources))
