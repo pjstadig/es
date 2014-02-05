@@ -169,22 +169,27 @@
                bulk-ok?))
       (index-refresh es [index-name0])
       (is (= #{doc0 doc1 doc2} (query))))
-    (testing "index operations"
-      (is (->> (bulk-index-ops (map #(assoc % "body" "body1") [doc0 doc1 doc2]))
-               (doc-bulk es)
-               bulk-ok?))
-      (index-refresh es [index-name0])
-      (is (= (set (map #(assoc % "body" "body1") [doc0 doc1 doc2])) (query)))
-      (is (->> (bulk-index-ops (map #(assoc % "body" "body2") [doc0 doc1 doc2]))
-               (doc-bulk-for-index es index-name0)
-               bulk-ok?))
-      (index-refresh es [index-name0])
-      (is (= (set (map #(assoc % "body" "body2") [doc0 doc1 doc2])) (query)))
-      (is (->> (bulk-index-ops (map #(assoc % "body" "body3") [doc0 doc1 doc2]))
-               (doc-bulk-for-index-and-type es index-name0 "0")
-               bulk-ok?))
-      (index-refresh es [index-name0])
-      (is (= (set (map #(assoc % "body" "body3") [doc0 doc1 doc2])) (query))))))
+    (testing "update operations"
+      (let [make-update (fn [body]
+                          (fn [source]
+                            (merge (select-keys source ["_index" "_type" "_id"])
+                                   {"script"
+                                    (str "ctx._source.body=\"" body "\"")})))]
+        (is (->> (bulk-update-ops (map (make-update "body2") [doc0 doc1 doc2]))
+                 (doc-bulk es)
+                 bulk-ok?))
+        (index-refresh es [index-name0])
+        (is (= (set (map #(assoc % "body" "body2") [doc0 doc1 doc2])) (query)))
+        (is (->> (bulk-update-ops (map (make-update "body1") [doc0 doc1 doc2]))
+                 (doc-bulk-for-index es index-name0)
+                 bulk-ok?))
+        (index-refresh es [index-name0])
+        (is (= (set (map #(assoc % "body" "body1") [doc0 doc1 doc2])) (query)))
+        (is (->> (bulk-update-ops (map (make-update "body") [doc0 doc1 doc2]))
+                 (doc-bulk-for-index-and-type es index-name0 "0")
+                 bulk-ok?))
+        (index-refresh es [index-name0])
+        (is (= #{doc0 doc1 doc2} (query)))))))
 
 (deftest test-search-hits
   (let [mappings {"0" {"properties" {"subject" {"type" "string"

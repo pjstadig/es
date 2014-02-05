@@ -475,3 +475,9 @@
             [{:index (select-keys-or-strs source [:_index :_type :_id])}
              source])
           sources))
+
+(defn bulk-update-ops [sources]
+  (mapcat (fn [source]
+            [{:update (select-keys-or-strs source [:_index :_type :_id])}
+             source])
+          sources))
