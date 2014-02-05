@@ -246,3 +246,48 @@
     (is (= [{"_type" "0", "_id" id0, "subject" subject "body" body}]
            (search-hits (search es index-name0
                                 (q/term :subject subject)))))))
+
+(deftest test-msearch
+  (let [mappings {"0" {"properties" {"subject" {"type" "string"
+                                                "index" "not_analyzed"}
+                                     "body" {"type" "string"
+                                             "index" "not_analyzed"}}}}
+        make-doc #(hash-map "_index" index-name0
+                            "_type" "0"
+                            "_id" (uuid-url-str)
+                            "subject" "subject"
+                            "body" "body")
+        doc0 (make-doc)
+        doc1 (make-doc)
+        doc2 (make-doc)
+        index-name1 (uuid-hex-str)
+        doc3 (assoc (make-doc) "_index" index-name1)]
+    (index-create es index-name0 :mappings mappings)
+    (is (bulk-ok? (doc-bulk es (bulk-create-ops [doc0 doc1 doc2]))))
+    (index-create es index-name1 :mappings mappings)
+    (is (bulk-ok? (doc-bulk es (bulk-create-ops [doc3]))))
+    (index-refresh es [index-name0 index-name1])
+    (is (= [#{doc0 doc1 doc2} #{doc3}]
+           (map (comp set search-hits)
+                (get (->> (bulk-queries [{:query { :term {:body "body"}}
+                                          :index index-name0
+                                          :type "0"}
+                                         {:query {:term {:subject "subject"}}
+                                          :index index-name1}])
+                          (msearch es))
+                     "responses"))))
+    (is (= [#{doc0 doc1 doc2} #{doc3}]
+           (map (comp set search-hits)
+                (get (->> (bulk-queries [{:query {:term {:body "body"}}
+                                          :type "0"}
+                                         {:query {:term {:subject "subject"}}
+                                          :index index-name1}])
+                          (msearch-for-index es index-name0))
+                     "responses"))))
+    (is (= [#{doc0 doc1 doc2} #{doc3}]
+           (map (comp set search-hits)
+                (get (->> (bulk-queries [{:query {:term {:body "body"}}}
+                                         {:query {:term {:subject "subject"}}
+                                          :index index-name1}])
+                          (msearch-for-index-and-type es index-name0 "0"))
+                     "responses"))))))

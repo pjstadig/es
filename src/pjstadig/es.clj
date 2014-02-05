@@ -314,6 +314,68 @@
   [es index-names query & {:as options}]
   (search* es index-names query options))
 
+(defn msearch
+  ([es headers&bodies]
+     (http-get (url es "_msearch")
+               (piped-body #(doseq [doc headers&bodies]
+                              (json/encode-stream doc %)
+                              (.write % "\n")))))
+  ([es headers&bodies params]
+     (http-get (url es "_msearch")
+               (assoc (piped-body #(doseq [doc headers&bodies]
+                                     (json/encode-stream doc %)
+                                     (.write % "\n")))
+                 :query-params params))))
+
+(defn msearch-for-index
+  ([es index-names headers&bodies]
+     (http-get (url es (index-list-str index-names) "_msearch")
+               (piped-body #(doseq [doc headers&bodies]
+                              (json/encode-stream doc %)
+                              (.write % "\n")))))
+  ([es index-names headers&bodies params]
+     (http-get (url es (index-list-str index-names) "_msearch")
+               (assoc (piped-body #(doseq [doc headers&bodies]
+                                     (json/encode-stream doc %)
+                                     (.write % "\n")))
+                 :query-params params))))
+
+(defn msearch-for-index-and-type
+  ([es index-names type-names headers&bodies]
+     (http-get (url es (index-list-str index-names) (index-list-str type-names)
+                    "_msearch")
+               (piped-body #(doseq [doc headers&bodies]
+                              (json/encode-stream doc %)
+                              (.write % "\n")))))
+  ([es index-names type-names headers&bodies params]
+     (http-get (url es (index-list-str index-names) (index-list-str type-names)
+                    "_msearch")
+               (assoc (piped-body #(doseq [doc headers&bodies]
+                                     (json/encode-stream doc %)
+                                     (.write % "\n")))
+                 :query-params params))))
+
+(defn select-keys-or-strs [m ks]
+  (reduce (fn [r k]
+            (if (contains? m k)
+              (assoc r k (k m))
+              (let [s (name k)]
+                (if (contains? m s)
+                  (assoc r k (get m s))
+                  r))))
+          {}
+          ks))
+
+(defn bulk-queries
+  [queries]
+  (mapcat (fn [query]
+            [(select-keys-or-strs query [:index :type :search_type
+                                         :preference :routing])
+             (dissoc query
+                     :index "index" :type "type" :search_type "search_type"
+                     :preference "preference" :routing "routing")])
+          queries))
+
 (defn doc-type
   "Gets the type-name (via :_type or \"_type\") from doc."
   [doc]
@@ -399,17 +461,6 @@
      (bulk-post (url es index-name type-name "_bulk") metas&sources))
   ([es index-name type-name metas&sources params]
      (bulk-post (url es index-name type-name "_bulk") metas&sources params)))
-
-(defn select-keys-or-strs [m ks]
-  (reduce (fn [r k]
-            (if (contains? m k)
-              (assoc r k (k m))
-              (let [s (name k)]
-                (if (contains? m s)
-                  (assoc r k (get m s))
-                  r))))
-          {}
-          ks))
 
 (defn bulk-create-ops [sources]
   (mapcat (fn [source]
