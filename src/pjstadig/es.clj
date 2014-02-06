@@ -355,6 +355,37 @@
                                      (.write % "\n")))
                  :query-params params))))
 
+(defn mget
+  ([es docs]
+     (http-get (url es "_mget")
+               (piped-body #(json/encode-stream {:docs docs} %))))
+  ([es docs params]
+     (http-get (url es "_mget")
+               (assoc (piped-body #(json/encode-stream {:docs docs} %))
+                 :query-params params))))
+
+(defn mget-for-index
+  ([es index-name docs]
+     (http-get (url es index-name "_mget")
+               (piped-body #(json/encode-stream {:docs docs} %))))
+  ([es index-name docs params]
+     (http-get (url es index-name "_mget")
+               (assoc (piped-body #(json/encode-stream {:docs docs} %))
+                 :query-params params))))
+
+(defn mget-for-index-and-type
+  ([es index-name type-name docs]
+     (http-get (url es index-name type-name "_mget")
+               (piped-body #(json/encode-stream (if (map? (first docs))
+                                                  {:docs docs}
+                                                  {:ids docs}) %))))
+  ([es index-name type-name docs params]
+     (http-get (url es index-name type-name "_mget")
+               (assoc (piped-body #(json/encode-stream (if (map? (first docs))
+                                                         {:docs docs}
+                                                         {:ids docs})))
+                 :query-params params))))
+
 (defn select-keys-or-strs [m ks]
   (reduce (fn [r k]
             (if (contains? m k)

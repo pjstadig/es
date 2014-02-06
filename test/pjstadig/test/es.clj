@@ -291,3 +291,47 @@
                                           :index index-name1}])
                           (msearch-for-index-and-type es index-name0 "0"))
                      "responses"))))))
+
+(deftest test-mget
+  (let [mappings {"0" {"properties" {"subject" {"type" "string"
+                                                "index" "not_analyzed"}
+                                     "body" {"type" "string"
+                                             "index" "not_analyzed"}}}}
+        make-doc #(hash-map "_index" index-name0
+                            "_type" "0"
+                            "_id" (uuid-url-str)
+                            "subject" "subject"
+                            "body" "body")
+        doc0 (make-doc)
+        doc1 (make-doc)
+        doc2 (make-doc)
+        index-name1 (uuid-hex-str)
+        doc3 (assoc (make-doc) "_index" index-name1)]
+    (index-create es index-name0 :mappings mappings)
+    (is (bulk-ok? (doc-bulk es (bulk-create-ops [doc0 doc1 doc2]))))
+    (index-create es index-name1 :mappings mappings)
+    (is (bulk-ok? (doc-bulk es (bulk-create-ops [doc3]))))
+    (index-refresh es [index-name0 index-name1])
+    (is (= #{doc0 doc1 doc2 doc3}
+           (set (map #(get % "_source")
+                     (get (mget es (map #(select-keys % ["_index" "_type"
+                                                         "_id"])
+                                        [doc0 doc1 doc2 doc3])) "docs")))))
+    (is (= #{doc0 doc1 doc2}
+           (set (map #(get % "_source")
+                     (get (mget-for-index es index-name0
+                                          (map #(select-keys % ["_type" "_id"])
+                                               [doc0 doc1 doc2]))
+                          "docs")))))
+    (is (= #{doc0 doc1 doc2}
+           (set (map #(get % "_source")
+                     (get (mget-for-index-and-type es index-name0 "0"
+                                                   (map #(select-keys % ["_id"])
+                                                        [doc0 doc1 doc2]))
+                          "docs")))))
+    (is (= #{doc0 doc1 doc2}
+           (set (map #(get % "_source")
+                     (get (mget-for-index-and-type es index-name0 "0"
+                                                   (map #(get % "_id")
+                                                        [doc0 doc1 doc2]))
+                          "docs")))))))
